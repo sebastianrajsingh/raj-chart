@@ -452,10 +452,33 @@ function detectPhase(closes,ma20,ma50,ma200,stochK) {
   const n=closes.length-1;
   const price=closes[n], m20=ma20[n], m50=ma50[n], m200=ma200[n], sk=stochK[n];
   if(!m20||!m50) return {label:'LOADING',cls:'p-stealth',desc:'Need more bars',verdict:'WAIT'};
+
+  // Drawdown check — 52-week high (last 52 bars)
+  const lookback = Math.min(52, n);
+  const high52 = Math.max(...closes.slice(n - lookback, n + 1));
+  const drawdown = (high52 - price) / high52; // 0.0 to 1.0
+
   const slope20 = m20-(ma20[n-4]||m20);
   const slope50 = m50-(ma50[n-4]||m50);
   const belowAll = price<m20&&price<m50&&(!m200||price<m200);
   const aboveAll = price>m20&&price>m50&&(!m200||price>m200);
+
+  // OVERRIDE: severe drawdown trumps short-term MA position
+  if(drawdown >= 0.45) {
+    if(sk!=null&&sk<30) return {label:'CAPITULATION · BUY ZONE',cls:'p-cap',desc:`Down ${(drawdown*100).toFixed(0)}% from 52w high · Stoch oversold · Structural damage — high risk`,verdict:'WATCH_ENTRY'};
+    if(sk!=null&&sk>=30&&sk<55) return {label:'BEAR TRAP · RECOVERING',cls:'p-bear',desc:`Down ${(drawdown*100).toFixed(0)}% from 52w high · Momentum building · Not confirmed reversal`,verdict:'WATCH'};
+    return {label:'DISTRIBUTION DAMAGE · CAUTION',cls:'p-dist',desc:`Down ${(drawdown*100).toFixed(0)}% from 52w high · Bounce in progress · Structural trend broken`,verdict:'CAUTION'};
+  }
+  if(drawdown >= 0.30) {
+    if(belowAll) {
+      if(sk!=null&&sk<30) return {label:'CAPITULATION · BUY ZONE',cls:'p-cap',desc:`Down ${(drawdown*100).toFixed(0)}% from 52w high · Below all MAs · Mean reversion setup`,verdict:'WATCH_ENTRY'};
+      return {label:'BEAR TRAP · WATCH',cls:'p-bear',desc:`Down ${(drawdown*100).toFixed(0)}% from 52w high · Below MAs · Wait for MA20 reclaim`,verdict:'WATCH'};
+    }
+    // Above some MAs but still deeply down — not Mania, it's a recovery bounce
+    return {label:'RECOVERY BOUNCE · CAUTION',cls:'p-stealth',desc:`Down ${(drawdown*100).toFixed(0)}% from 52w high · Short-term bounce · Not a new uptrend`,verdict:'WAIT'};
+  }
+
+  // Normal phase logic for stocks not in severe drawdown
   if(belowAll&&sk!=null&&sk<25) return {label:'CAPITULATION · BUY ZONE',cls:'p-cap',desc:'Below all MAs · Stoch oversold · Mean reversion forming',verdict:'WATCH_ENTRY'};
   if(belowAll&&sk!=null&&sk>=25) return {label:'BEAR TRAP · WATCH',cls:'p-bear',desc:'Below MAs · Momentum recovering · Wait for MA20 reclaim',verdict:'WATCH'};
   if(price<m50&&price>m20&&slope20>0) return {label:'AWARENESS PHASE · EARLY',cls:'p-awareness',desc:'Reclaiming MA20 · Buy before mania begins',verdict:'CONSIDER'};
