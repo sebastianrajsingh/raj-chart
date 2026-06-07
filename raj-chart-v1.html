@@ -453,8 +453,8 @@ function detectPhase(closes,ma20,ma50,ma200,stochK) {
   const price=closes[n], m20=ma20[n], m50=ma50[n], m200=ma200[n], sk=stochK[n];
   if(!m20||!m50) return {label:'LOADING',cls:'p-stealth',desc:'Need more bars',verdict:'WAIT'};
 
-  // Drawdown check — 52-week high (last 52 bars)
-  const lookback = Math.min(52, n);
+  // Drawdown check — 2-year high (last 104 weekly bars)
+  const lookback = Math.min(104, n);
   const high52 = Math.max(...closes.slice(n - lookback, n + 1));
   const drawdown = (high52 - price) / high52; // 0.0 to 1.0
 
